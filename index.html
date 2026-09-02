@@ -1,0 +1,746 @@
+<!doctype html>
+<html lang="en" translate="no">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="google" content="notranslate" />
+  <title>Maya / AE Overscan Camera Calculator</title>
+  <style>
+    :root {
+      --bg: #121417;
+      --panel: #1b1f25;
+      --panel2: #222832;
+      --text: #e9edf2;
+      --muted: #9aa6b2;
+      --line: #333b47;
+      --accent: #7dd3fc;
+      --good: #a7f3d0;
+      --warn: #fcd34d;
+      --bad: #fca5a5;
+      --input: #0d1117;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #1d2633 0, var(--bg) 45%);
+      color: var(--text);
+      line-height: 1.45;
+    }
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 28px 18px 40px;
+    }
+    .titlebar {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(24px, 3vw, 36px);
+      letter-spacing: -0.03em;
+    }
+    .lang-switch {
+      display: flex;
+      gap: 6px;
+      margin-top: 6px;
+      flex-shrink: 0;
+    }
+    .lang-switch button {
+      background: #303947;
+      color: var(--text);
+      border: 1px solid #455164;
+      padding: 7px 12px;
+      font-size: 12px;
+    }
+    .lang-switch button.active {
+      background: var(--accent);
+      color: #03121a;
+      border-color: var(--accent);
+    }
+    .sub {
+      color: var(--muted);
+      margin-bottom: 22px;
+      max-width: 860px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 14px;
+    }
+    .card {
+      background: rgba(27,31,37,0.92);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.22);
+    }
+    .span4 { grid-column: span 4; }
+    .span5 { grid-column: span 5; }
+    .span6 { grid-column: span 6; }
+    .span7 { grid-column: span 7; }
+    .span8 { grid-column: span 8; }
+    .span12 { grid-column: span 12; }
+    @media (max-width: 900px) {
+      .span4, .span5, .span6, .span7, .span8 { grid-column: span 12; }
+    }
+    h2 {
+      font-size: 15px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+      margin: 0 0 12px;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: 1.25fr 1fr 1fr;
+      gap: 10px;
+      align-items: end;
+      margin-bottom: 10px;
+    }
+    .row.single { grid-template-columns: 1.25fr 2fr; }
+    label {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+    input, select {
+      width: 100%;
+      border: 1px solid #3a4350;
+      background: var(--input);
+      color: var(--text);
+      border-radius: 9px;
+      padding: 10px 11px;
+      font-size: 14px;
+      outline: none;
+    }
+    input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(125,211,252,.12); }
+    input[type=number]::-webkit-outer-spin-button,
+    input[type=number]::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    input[type=number] {
+      -moz-appearance: textfield;
+      appearance: textfield;
+    }
+    .tiny { font-size: 12px; color: var(--muted); margin-top: 8px; }
+    .result {
+      background: var(--panel2);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+    .result-title {
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 5px;
+    }
+    .result-value {
+      font-variant-numeric: tabular-nums;
+      font-size: 20px;
+      font-weight: 700;
+      word-break: break-word;
+    }
+    .good { color: var(--good); }
+    .warn { color: var(--warn); }
+    .bad { color: var(--bad); }
+    button {
+      border: 0;
+      border-radius: 9px;
+      padding: 9px 11px;
+      font-weight: 700;
+      cursor: pointer;
+      background: var(--accent);
+      color: #03121a;
+    }
+    button.secondary {
+      background: #303947;
+      color: var(--text);
+      border: 1px solid #455164;
+    }
+    button.danger {
+      background: #3a2530;
+      color: var(--bad);
+      border: 1px solid #5a3540;
+    }
+    .button-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    .preview-wrap {
+      background: #05070a;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+      padding: 12px;
+    }
+    svg { width: 100%; height: auto; display: block; }
+    .code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      background: #0d1117;
+      border: 1px solid #303947;
+      border-radius: 10px;
+      padding: 12px;
+      white-space: pre-wrap;
+      color: #d9e2ec;
+      font-size: 13px;
+    }
+    .checklist li { margin-bottom: 5px; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #0d1117;
+      border: 1px solid #333b47;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      color: var(--muted);
+      margin: 2px 4px 2px 0;
+    }
+  </style>
+</head>
+<body>
+<main>
+  <div class="titlebar">
+    <div>
+      <h1 data-i18n="title">Maya / AE Overscan Camera Calculator</h1>
+    </div>
+    <div class="lang-switch">
+      <button id="langEnBtn" class="active" onclick="setLanguage('en')">EN</button>
+      <button id="langJaBtn" onclick="setLanguage('ja')">日本語</button>
+    </div>
+  </div>
+  <div class="sub" data-i18n="subtitle">
+    Calculates an overscan camera: the original Maya camera matches the plate/footage, and the new one must render a larger AE comp while keeping the plate in the same place. Does not touch focal length / translate / rotate — only Camera Aperture and Film Offset.
+  </div>
+
+  <div class="grid">
+    <section class="card span4">
+      <h2 data-i18n="sec1_title">1. Footage / Plate</h2>
+      <div class="row">
+        <div></div>
+        <div><label data-i18n="label_width">Width</label><input id="srcW" type="number" step="0.001" value="1920"></div>
+        <div><label data-i18n="label_height">Height</label><input id="srcH" type="number" step="0.001" value="1080"></div>
+      </div>
+      <div class="tiny" data-i18n="sec1_hint">Size of the source footage the current camera matches.</div>
+    </section>
+
+    <section class="card span4">
+      <h2 data-i18n="sec2_title">2. Target Comp / Render</h2>
+      <div class="row">
+        <div></div>
+        <div><label data-i18n="label_width">Width</label><input id="compW" type="number" step="0.001" value="1920"></div>
+        <div><label data-i18n="label_height">Height</label><input id="compH" type="number" step="0.001" value="1080"></div>
+      </div>
+      <div class="tiny" data-i18n="sec2_hint">Size of the AE comp and the future Maya render.</div>
+    </section>
+
+    <section class="card span4">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;">
+        <h2 data-i18n="sec3_title" style="margin:0;">3. Old Maya Camera Aperture</h2>
+        <div class="lang-switch" style="margin-top:0;">
+          <button id="unitInchBtn" class="active" onclick="setApertureUnit('inch')">in</button>
+          <button id="unitMmBtn" onclick="setApertureUnit('mm')">mm</button>
+        </div>
+      </div>
+      <div class="row">
+        <div></div>
+        <div><label data-i18n="label_horizontal_inch">Horizontal</label><input id="oldApertureH" type="number" step="0.000001" value="1.680"></div>
+        <div><label data-i18n="label_vertical_inch">Vertical</label><input id="oldApertureV" type="number" step="0.000001" value="0.945"></div>
+      </div>
+      <div class="row single">
+        <div><label data-i18n="label_fit_gate">Fit Resolution Gate</label></div>
+        <div>
+          <select id="fitGate">
+            <option value="horizontal" data-i18n="fit_horizontal">Horizontal</option>
+            <option value="vertical" data-i18n="fit_vertical">Vertical</option>
+          </select>
+        </div>
+      </div>
+      <div class="tiny" data-i18n="sec3_hint">Take the values from cameraShape → Film Back → Camera Aperture. Also check Film Back → Fit Resolution Gate.</div>
+    </section>
+
+    <section class="card span6">
+      <h2 data-i18n="sec4_title">4. AE Layer Transform</h2>
+      <div class="row">
+        <div></div>
+        <div><label data-i18n="label_anchor_x">Anchor X</label><input id="anchorX" type="number" step="0.001" value="0"></div>
+        <div><label data-i18n="label_anchor_y">Anchor Y</label><input id="anchorY" type="number" step="0.001" value="0"></div>
+      </div>
+      <div class="row">
+        <div></div>
+        <div><label data-i18n="label_position_x">Position X</label><input id="posX" type="number" step="0.001" value="0"></div>
+        <div><label data-i18n="label_position_y">Position Y</label><input id="posY" type="number" step="0.001" value="0"></div>
+      </div>
+      <div class="row">
+        <div></div>
+        <div><label data-i18n="label_scale_x">Scale X %</label><input id="scaleX" type="number" step="0.001" value="100"></div>
+        <div><label data-i18n="label_scale_y">Scale Y %</label><input id="scaleY" type="number" step="0.001" value="100"></div>
+      </div>
+      <div class="button-row">
+        <button class="secondary" data-i18n="btn_anchor_center" onclick="setAnchorCenter()">Anchor = Footage Center</button>
+        <button class="danger" data-i18n="btn_reset" onclick="resetDefaults()">Reset to Defaults</button>
+      </div>
+      <div class="tiny" data-i18n="sec4_hint">Works for Rotation = 0°. For a rotated layer, AE's bounding box is different — precomp it without rotation first.</div>
+    </section>
+
+    <section class="card span6">
+      <h2 data-i18n="sec5_title">5. Results for Maya</h2>
+      <div class="result"><div class="result-title" data-i18n="res_render_size_title">Render Settings → Image Size</div><div class="result-value" id="renderSize">—</div></div>
+      <div class="result"><div class="result-title" data-i18n="res_new_aperture_title">cameraShape → Film Back → Camera Aperture (inch)</div><div class="result-value good" id="newAperture">—</div></div>
+      <div class="result"><div class="result-title" data-i18n="res_film_offset_title">cameraShape → Film Back → Film Offset</div><div class="result-value warn" id="filmOffset">—</div></div>
+      <div class="tiny" data-i18n="film_offset_sign_note">If the offset moves in the wrong direction in Maya, invert the sign of both Film Offset values.</div>
+      <div class="result" id="gateWarning" style="display:none;border-color:#5a4a20;">
+        <div class="result-title warn" data-i18n="warn_gate_title">⚠ Check Fit Resolution Gate</div>
+        <div class="tiny" data-i18n="warn_gate_text" style="margin-top:2px;">The new aperture's aspect ratio doesn't match the render's — Horizontal and Vertical fit will give different results here. Set Fit Resolution Gate above to match what your camera actually uses in Maya.</div>
+      </div>
+      <div class="button-row">
+        <button id="copyBtn" data-i18n="btn_copy" onclick="copyMaya()">Copy Maya Values</button>
+      </div>
+      <div class="tiny" data-i18n="sec5_hint">Do not change Focal Length, Translate, Rotate. Render with the overscan camera.</div>
+    </section>
+
+    <section class="card span12">
+      <h2 data-i18n="sec_script_title">Maya Script</h2>
+      <div class="button-row">
+        <button id="scriptCopyBtn" data-i18n="btn_copy_script" onclick="copyMayaScript()">Copy Script</button>
+      </div>
+      <div class="tiny" data-i18n="sec_script_hint">Python. Applies to the camera currently selected in Maya — select the overscan camera before running it. Always writes inches, since that's what Maya's Camera Aperture and Film Offset attributes actually store.</div>
+      <div class="code" id="mayaScriptBlock">—</div>
+    </section>
+
+    <section class="card span5">
+      <h2 data-i18n="sec_margins_title">Margins / Placement</h2>
+      <div class="result"><div class="result-title" data-i18n="res_bounds_title">Footage Bounds in Comp</div><div class="result-value" id="bounds">—</div></div>
+      <div class="result"><div class="result-title" data-i18n="res_pixel_offset_title">Offset from Comp Center, px</div><div class="result-value" id="pixelOffset">—</div></div>
+      <div class="result"><div class="result-title" data-i18n="res_multipliers_title">Aperture Multipliers</div><div class="result-value" id="multipliers">—</div></div>
+      <div class="result"><div class="result-title" data-i18n="res_blender_shift_title">Blender Camera Shift</div><div class="result-value" id="blenderShift">—</div></div>
+    </section>
+
+    <section class="card span7">
+      <h2 data-i18n="sec_preview_title">Visual Check</h2>
+      <div class="preview-wrap">
+        <svg id="preview" viewBox="0 0 640 360" role="img" aria-label="Preview">
+          <rect x="0" y="0" width="640" height="360" fill="#05070a"/>
+          <rect id="compRect" x="20" y="20" width="600" height="320" fill="#111827" stroke="#6b7280" stroke-width="1.5"/>
+          <rect id="footRect" x="0" y="0" width="0" height="0" fill="rgba(125,211,252,.22)" stroke="#7dd3fc" stroke-width="2"/>
+          <line id="cxLine" x1="0" y1="0" x2="0" y2="0" stroke="#374151" stroke-dasharray="4 4"/>
+          <line id="cyLine" x1="0" y1="0" x2="0" y2="0" stroke="#374151" stroke-dasharray="4 4"/>
+          <circle id="centerDot" cx="0" cy="0" r="3" fill="#fcd34d"/>
+          <text id="previewText" x="28" y="38" fill="#d1d5db" font-size="13" font-family="ui-monospace, monospace">—</text>
+        </svg>
+      </div>
+      <div class="tiny">
+        <span class="pill" data-i18n="pill1">gray = target comp</span><span class="pill" data-i18n="pill2">blue = old footage inside comp</span><span class="pill" data-i18n="pill3">yellow dot = footage center</span>
+      </div>
+    </section>
+
+    <section class="card span12">
+      <h2 data-i18n="sec_instructions_title">Quick Instructions</h2>
+      <ol class="checklist">
+        <li data-i18n="li1">Fill in the footage size, the target comp size, and the old camera's aperture and fit mode at the top.</li>
+        <li data-i18n="li2">If the footage is offset inside the comp, fill in Anchor / Position / Scale from the AE layer.</li>
+        <li data-i18n="li3">Copy the results into the overscan camera in Maya: Render Size, Camera Aperture, and Film Offset.</li>
+      </ol>
+      <div class="code" id="copyBlock">—</div>
+    </section>
+  </div>
+</main>
+
+<script>
+  // ---------------------------------------------------------------
+  // i18n
+  // ---------------------------------------------------------------
+  const translations = {
+    en: {
+      title: "Maya / AE Overscan Camera Calculator",
+      subtitle: "Calculates an overscan camera: the original Maya camera matches the plate/footage, and the new one must render a larger AE comp while keeping the plate in the same place. Does not touch focal length / translate / rotate — only Camera Aperture and Film Offset.",
+      sec1_title: "1. Footage / Plate",
+      sec1_hint: "Size of the source footage the current camera matches.",
+      sec2_title: "2. Target Comp / Render",
+      sec2_hint: "Size of the AE comp and the future Maya render.",
+      sec3_title: "3. Old Maya Camera Aperture",
+      sec3_hint: "Take the values from cameraShape → Film Back → Camera Aperture. Also check Film Back → Fit Resolution Gate.",
+      label_fit_gate: "Fit Resolution Gate",
+      fit_horizontal: "Horizontal",
+      fit_vertical: "Vertical",
+      warn_gate_title: "⚠ Check Fit Resolution Gate",
+      warn_gate_text: "The new aperture's aspect ratio doesn't match the render's — Horizontal and Vertical fit will give different results here. Set Fit Resolution Gate above to match what your camera actually uses in Maya.",
+      sec_script_title: "Maya Script",
+      btn_copy_script: "Copy Script",
+      sec_script_hint: "Python. Applies to the camera currently selected in Maya — select the overscan camera before running it. Always writes inches, since that's what Maya's Camera Aperture and Film Offset attributes actually store.",
+      sec4_title: "4. AE Layer Transform",
+      sec4_hint: "Works for Rotation = 0°. For a rotated layer, AE's bounding box is different — precomp it without rotation first.",
+      sec5_title: "5. Results for Maya",
+      sec5_hint: "Do not change Focal Length, Translate, Rotate. Render with the overscan camera.",
+      sec_margins_title: "Margins / Placement",
+      sec_preview_title: "Visual Check",
+      sec_instructions_title: "Quick Instructions",
+      label_width: "Width",
+      label_height: "Height",
+      label_horizontal_inch: "Horizontal",
+      label_vertical_inch: "Vertical",
+      label_anchor_x: "Anchor X",
+      label_anchor_y: "Anchor Y",
+      label_position_x: "Position X",
+      label_position_y: "Position Y",
+      label_scale_x: "Scale X %",
+      label_scale_y: "Scale Y %",
+      btn_anchor_center: "Anchor = Footage Center",
+      btn_reset: "Reset to Defaults",
+      btn_copy: "Copy Maya Values",
+      btn_copied: "Copied",
+      res_render_size_title: "Render Settings → Image Size",
+      res_new_aperture_title: (u) => `cameraShape → Film Back → Camera Aperture (${u})`,
+      res_film_offset_title: (u) => `cameraShape → Film Back → Film Offset (${u})`,
+      film_offset_sign_note: "If the offset moves in the wrong direction in Maya, invert the sign of both Film Offset values.",
+      res_bounds_title: "Footage Bounds in Comp",
+      res_pixel_offset_title: "Offset from Comp Center, px",
+      res_multipliers_title: "Aperture Multipliers",
+      res_blender_shift_title: "Blender Camera Shift",
+      pill1: "gray = target comp",
+      pill2: "blue = old footage inside comp",
+      pill3: "yellow dot = footage center",
+      li1: "Fill in the footage size, the target comp size, and the old camera's aperture and fit mode at the top.",
+      li2: "If the footage is offset inside the comp, fill in Anchor / Position / Scale from the AE layer.",
+      li3: "Copy the results into the overscan camera in Maya: Render Size, Camera Aperture, and Film Offset.",
+      copy_failed: "Copy failed. Just select the text block below.",
+      copy_title: "MAYA OVERSCAN SETTINGS",
+      copy_render_settings: "Render Settings / Image Size:",
+      copy_width: "Width:",
+      copy_height: "Height:",
+      copy_pixel_aspect: "Pixel Aspect: 1",
+      copy_aperture: (u) => `Camera Aperture (${u}):`,
+      copy_horizontal: "Horizontal:",
+      copy_vertical: "Vertical:",
+      copy_film_offset: "Film Offset:",
+      copy_ae_check: "AE placement check:",
+      copy_left: "Left:",
+      copy_right: "Right:",
+      copy_top: "Top:",
+      copy_bottom: "Bottom:",
+      copy_offset_from_center: "Offset from comp center:",
+      copy_blender: "Blender Shift approximation:",
+      copy_shift_x: "Shift X:",
+      copy_shift_y: "Shift Y:",
+      copy_do_not_change: "Do not change focal length / translate / rotate.",
+      preview_text: (compW, compH, cx, cy) => `comp ${compW}×${compH} / footage center ${cx}, ${cy}`
+    },
+    ja: {
+      title: "Maya / AE オーバースキャン・カメラ計算機",
+      subtitle: "オーバースキャン用カメラを計算します。元のMayaカメラはplate/footageに一致しており、新しいカメラはplateを同じ位置に保ったまま、より大きなAEコンプをレンダリングする必要があります。Focal Length・Translate・Rotateは変更せず、Camera ApertureとFilm Offsetのみを変更します。",
+      sec1_title: "1. Footage / Plate",
+      sec1_hint: "現在のカメラが一致している元素材のサイズ。",
+      sec2_title: "2. 対象コンプ / レンダー",
+      sec2_hint: "AEコンプおよび今後のMayaレンダーのサイズ。",
+      sec3_title: "3. 旧Mayaカメラ Aperture",
+      sec3_hint: "cameraShape → Film Back → Camera Aperture の値を入力してください。Film Back → Fit Resolution Gate の設定も確認してください。",
+      label_fit_gate: "Fit Resolution Gate",
+      fit_horizontal: "Horizontal",
+      fit_vertical: "Vertical",
+      warn_gate_title: "⚠ Fit Resolution Gateを確認してください",
+      warn_gate_text: "新しいApertureのアスペクト比がレンダーのアスペクト比と一致していません。HorizontalとVerticalで結果が変わります。上のFit Resolution Gateを、実際にMayaのカメラで使用している設定に合わせてください。",
+      sec_script_title: "Mayaスクリプト",
+      btn_copy_script: "スクリプトをコピー",
+      sec_script_hint: "Python。Mayaで現在選択中のカメラに適用されます — 実行前にオーバースキャンカメラを選択してください。常にinchで出力されます(MayaのCamera ApertureとFilm Offsetの実際のアトリビュートはinchで保存されているため)。",
+      sec4_title: "4. AEレイヤーのTransform",
+      sec4_hint: "Rotation = 0° の場合のみ有効です。レイヤーが回転している場合、AEのバウンディングボックスが変わるため、先にRotationなしでプリコンポーズしてください。",
+      sec5_title: "5. Maya用の計算結果",
+      sec5_hint: "Focal Length・Translate・Rotateは変更しないでください。オーバースキャンカメラでレンダリングします。",
+      sec_margins_title: "マージン / 配置",
+      sec_preview_title: "ビジュアルチェック",
+      sec_instructions_title: "手順",
+      label_width: "幅",
+      label_height: "高さ",
+      label_horizontal_inch: "水平",
+      label_vertical_inch: "垂直",
+      label_anchor_x: "Anchor X",
+      label_anchor_y: "Anchor Y",
+      label_position_x: "Position X",
+      label_position_y: "Position Y",
+      label_scale_x: "Scale X %",
+      label_scale_y: "Scale Y %",
+      btn_anchor_center: "Anchor = Footage中心",
+      btn_reset: "初期値にリセット",
+      btn_copy: "Maya用の値をコピー",
+      btn_copied: "コピーしました",
+      res_render_size_title: "Render Settings → Image Size",
+      res_new_aperture_title: (u) => `cameraShape → Film Back → Camera Aperture (${u})`,
+      res_film_offset_title: (u) => `cameraShape → Film Back → Film Offset (${u})`,
+      film_offset_sign_note: "Mayaでオフセットが逆方向に動く場合は、Film Offsetの2つの値の符号を反転してください。",
+      res_bounds_title: "コンプ内でのFootageの範囲",
+      res_pixel_offset_title: "コンプ中心からのオフセット (px)",
+      res_multipliers_title: "Aperture倍率",
+      res_blender_shift_title: "Blender Camera Shift",
+      pill1: "グレー = 対象コンプ",
+      pill2: "水色 = コンプ内の元のfootage",
+      pill3: "黄色い点 = footageの中心",
+      li1: "上部に、footageのサイズ、対象コンプのサイズ、旧カメラのApertureとFit Resolution Gateを入力します。",
+      li2: "コンプ内でfootageがずれている場合は、AEレイヤーのAnchor / Position / Scaleを入力します。",
+      li3: "結果をMayaのオーバースキャンカメラに入力します:Render Size、Camera Aperture、Film Offset。",
+      copy_failed: "コピーに失敗しました。下のテキストブロックを選択してください。",
+      copy_title: "MAYA オーバースキャン設定",
+      copy_render_settings: "Render Settings / Image Size:",
+      copy_width: "幅:",
+      copy_height: "高さ:",
+      copy_pixel_aspect: "Pixel Aspect: 1",
+      copy_aperture: (u) => `Camera Aperture (${u}):`,
+      copy_horizontal: "水平:",
+      copy_vertical: "垂直:",
+      copy_film_offset: "Film Offset:",
+      copy_ae_check: "AE配置チェック:",
+      copy_left: "左:",
+      copy_right: "右:",
+      copy_top: "上:",
+      copy_bottom: "下:",
+      copy_offset_from_center: "コンプ中心からのオフセット:",
+      copy_blender: "Blender Shift 概算値:",
+      copy_shift_x: "Shift X:",
+      copy_shift_y: "Shift Y:",
+      copy_do_not_change: "Focal Length / Translate / Rotate は変更しないでください。",
+      preview_text: (compW, compH, cx, cy) => `コンプ ${compW}×${compH} / footage中心 ${cx}, ${cy}`
+    }
+  };
+
+  let currentLang = 'en';
+
+  function setLanguage(lang) {
+    currentLang = lang;
+    document.getElementById('langEnBtn').classList.toggle('active', lang === 'en');
+    document.getElementById('langJaBtn').classList.toggle('active', lang === 'ja');
+    document.documentElement.lang = lang === 'ja' ? 'ja' : 'en';
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      const key = el.getAttribute('data-i18n');
+      const val = translations[lang][key];
+      if (typeof val === 'string') el.textContent = val;
+    });
+    calculate();
+  }
+
+  // ---------------------------------------------------------------
+  // Calculator logic
+  // ---------------------------------------------------------------
+  const DEFAULTS = {
+    srcW: 1920, srcH: 1080, compW: 1920, compH: 1080,
+    oldApertureH: 1.680, oldApertureV: 0.945,
+    anchorX: 0, anchorY: 0, posX: 0, posY: 0,
+    scaleX: 100, scaleY: 100, fitGate: 'horizontal'
+  };
+
+  const ids = ["srcW","srcH","compW","compH","oldApertureH","oldApertureV","anchorX","anchorY","posX","posY","scaleX","scaleY"];
+  ids.forEach(id => document.getElementById(id).addEventListener('input', calculate));
+  document.getElementById('fitGate').addEventListener('change', calculate);
+
+  // Manual input only: no scroll-wheel value changes on number fields
+  // (this is what was silently corrupting values before, e.g. Scale % jumping toward 0).
+  document.querySelectorAll('input[type=number]').forEach(el => {
+    el.addEventListener('wheel', () => el.blur(), { passive: true });
+  });
+
+  function n(id) {
+    const v = parseFloat(document.getElementById(id).value);
+    return Number.isFinite(v) ? v : 0;
+  }
+  function fmt(x, d=3) {
+    if (!Number.isFinite(x)) return "—";
+    return (Math.round(x * Math.pow(10,d)) / Math.pow(10,d)).toFixed(d);
+  }
+  function fmt2(x) { return fmt(x, 2); }
+
+  function setAnchorCenter() {
+    document.getElementById('anchorX').value = n('srcW') / 2;
+    document.getElementById('anchorY').value = n('srcH') / 2;
+    calculate();
+  }
+
+  function applyValues(data) {
+    Object.entries(data).forEach(([k,v]) => document.getElementById(k).value = v);
+    calculate();
+  }
+
+  function resetDefaults() {
+    apertureUnit = 'inch';
+    document.getElementById('unitInchBtn').classList.add('active');
+    document.getElementById('unitMmBtn').classList.remove('active');
+    applyValues(DEFAULTS);
+  }
+
+  // ---------------------------------------------------------------
+  // Aperture display unit (inch / mm). Maya's Camera Aperture and
+  // Film Offset attributes always store inches internally — this only
+  // affects what's typed in and what's shown, to match whatever unit
+  // Maya's own UI preference is set to.
+  // ---------------------------------------------------------------
+  let apertureUnit = 'inch';
+
+  function setApertureUnit(u) {
+    if (u === apertureUnit) return;
+    const hEl = document.getElementById('oldApertureH');
+    const vEl = document.getElementById('oldApertureV');
+    let h = parseFloat(hEl.value) || 0;
+    let v = parseFloat(vEl.value) || 0;
+    if (apertureUnit === 'inch' && u === 'mm') { h *= 25.4; v *= 25.4; }
+    else if (apertureUnit === 'mm' && u === 'inch') { h /= 25.4; v /= 25.4; }
+    apertureUnit = u;
+    hEl.value = Math.round(h * 1e6) / 1e6;
+    vEl.value = Math.round(v * 1e6) / 1e6;
+    document.getElementById('unitInchBtn').classList.toggle('active', u === 'inch');
+    document.getElementById('unitMmBtn').classList.toggle('active', u === 'mm');
+    calculate();
+  }
+
+  let lastCalc = null;
+
+  function calculate() {
+    const t = translations[currentLang];
+    const srcW = n('srcW'), srcH = n('srcH'), compW = n('compW'), compH = n('compH');
+    const unitToInch = apertureUnit === 'mm' ? (1 / 25.4) : 1;
+    const inchToUnit = apertureUnit === 'mm' ? 25.4 : 1;
+    const oldH = n('oldApertureH') * unitToInch, oldV = n('oldApertureV') * unitToInch;
+    const ax = n('anchorX'), ay = n('anchorY'), px = n('posX'), py = n('posY');
+    const sx = n('scaleX') / 100, sy = n('scaleY') / 100;
+
+    const dispW = srcW * sx;
+    const dispH = srcH * sy;
+    const left = px - ax * sx;
+    const top = py - ay * sy;
+    const right = compW - (left + dispW);
+    const bottom = compH - (top + dispH);
+    const centerX = left + dispW / 2;
+    const centerY = top + dispH / 2;
+    const offPxX = centerX - compW / 2;
+    const offPxY = centerY - compH / 2;
+
+    const multH = compW / dispW;
+    const multV = compH / dispH;
+
+    // The active Fit Resolution Gate axis drives the projection.
+    // Do NOT scale horizontal and vertical aperture independently:
+    // derive the other aperture axis from the target render aspect ratio.
+    const fitGate = document.getElementById('fitGate').value;
+    let newH, newV;
+    if (fitGate === 'vertical') {
+      newV = oldV * multV;                 // inches
+      newH = newV * (compW / compH);       // match target render aspect
+    } else {
+      newH = oldH * multH;                 // inches
+      newV = newH * (compH / compW);       // match target render aspect
+    }
+
+    // Effective aperture used for px → film-offset conversion.
+    const effH = newH;
+    const effV = newV;
+
+    // Maya's horizontal Film Offset moves the image opposite to AE's +X layer shift.
+    // Vertical sign matches AE screen-space Y for this workflow.
+    const filmX = -offPxX / compW * effH; // inches
+    const filmY =  offPxY / compH * effV; // inches
+
+    // Blender shift uses render width for both axes in common horizontal sensor fit workflows.
+    const blenderX = offPxX / compW;
+    const blenderY = offPxY / compW;
+
+    // Warn when the new aperture's aspect ratio doesn't match the render's —
+    // in that case Horizontal vs Vertical Fit Resolution Gate genuinely give
+    // different Film Offset results, so the setting has to be correct.
+    const filmAspect = newH / newV;
+    const deviceAspect = compW / compH;
+    const gateMismatch = Math.abs(filmAspect / deviceAspect - 1) > 0.003;
+    document.getElementById('gateWarning').style.display = gateMismatch ? 'block' : 'none';
+
+    // Display values, converted to the chosen unit.
+    const newHd = newH * inchToUnit, newVd = newV * inchToUnit;
+    const filmXd = filmX * inchToUnit, filmYd = filmY * inchToUnit;
+
+    document.getElementById('renderSize').textContent = `${fmt2(compW)} × ${fmt2(compH)}`;
+    document.getElementById('newAperture').textContent = `${fmt(newHd)}    ${fmt(newVd)}`;
+    document.getElementById('filmOffset').textContent = `${fmt(filmXd)}    ${fmt(filmYd)}`;
+    document.getElementById('bounds').textContent = `L ${fmt2(left)} / R ${fmt2(right)} / T ${fmt2(top)} / B ${fmt2(bottom)}`;
+    document.getElementById('pixelOffset').textContent = `X ${fmt2(offPxX)} / Y ${fmt2(offPxY)}`;
+    document.getElementById('multipliers').textContent = `H ×${fmt(multH,6)} / V ×${fmt(multV,6)}`;
+    document.getElementById('blenderShift').textContent = `X ${fmt(blenderX,5)} / Y ${fmt(blenderY,5)}`;
+    document.getElementById('newAperture').previousElementSibling.textContent = t.res_new_aperture_title(apertureUnit);
+    document.getElementById('filmOffset').previousElementSibling.textContent = t.res_film_offset_title(apertureUnit);
+
+    const copy = `${t.copy_title}\n\n${t.copy_render_settings}\n${t.copy_width}  ${fmt2(compW)}\n${t.copy_height} ${fmt2(compH)}\n${t.copy_pixel_aspect}\n\n${t.copy_aperture(apertureUnit)}\n${t.copy_horizontal} ${fmt(newHd)}\n${t.copy_vertical}   ${fmt(newVd)}\n\n${t.copy_film_offset}\n${t.copy_horizontal} ${fmt(filmXd)}\n${t.copy_vertical}   ${fmt(filmYd)}\n\n${t.copy_ae_check}\n${t.copy_left}   ${fmt2(left)} px\n${t.copy_right}  ${fmt2(right)} px\n${t.copy_top}    ${fmt2(top)} px\n${t.copy_bottom} ${fmt2(bottom)} px\n\n${t.copy_offset_from_center}\nX: ${fmt2(offPxX)} px\nY: ${fmt2(offPxY)} px\n\n${t.copy_blender}\n${t.copy_shift_x} ${fmt(blenderX,5)}\n${t.copy_shift_y} ${fmt(blenderY,5)}\n\n${t.copy_do_not_change}`;
+    document.getElementById('copyBlock').textContent = copy;
+
+    lastCalc = { newH_in: newH, newV_in: newV, filmX_in: filmX, filmY_in: filmY, compW, compH };
+    updateScriptBlock();
+
+    drawPreview(compW, compH, left, top, dispW, dispH, centerX, centerY);
+  }
+
+  function buildMayaScript() {
+    if (!lastCalc) return "—";
+    const hIn = fmt(lastCalc.newH_in, 6), vIn = fmt(lastCalc.newV_in, 6);
+    const fxIn = fmt(lastCalc.filmX_in, 6), fyIn = fmt(lastCalc.filmY_in, 6);
+    const w = fmt2(lastCalc.compW), h = fmt2(lastCalc.compH);
+    return `import maya.cmds as cmds\n\n# Overscan camera setup. Camera Aperture and Film Offset are always\n# stored in inches in Maya's attributes, regardless of UI display unit.\n# Select the overscan camera (transform or shape) before running this.\n\nsel = cmds.ls(selection=True) or []\nif not sel:\n    cmds.error("Select a camera first.")\n\nnode = sel[0]\nif cmds.nodeType(node) == "camera":\n    cam = node\nelse:\n    shapes = cmds.listRelatives(node, shapes=True, type="camera") or []\n    if not shapes:\n        cmds.error("Selected object is not a camera.")\n    cam = shapes[0]\n\ncmds.setAttr(cam + ".horizontalFilmAperture", ${hIn})\ncmds.setAttr(cam + ".verticalFilmAperture", ${vIn})\ncmds.setAttr(cam + ".horizontalFilmOffset", ${fxIn})\ncmds.setAttr(cam + ".verticalFilmOffset", ${fyIn})\n\ncmds.setAttr("defaultResolution.width", ${w})\ncmds.setAttr("defaultResolution.height", ${h})\n`;
+  }
+
+  function updateScriptBlock() {
+    document.getElementById('mayaScriptBlock').textContent = buildMayaScript();
+  }
+
+  function copyMayaScript() {
+    const t = translations[currentLang];
+    const text = document.getElementById('mayaScriptBlock').textContent;
+    const btn = document.getElementById('scriptCopyBtn');
+    navigator.clipboard.writeText(text).then(() => {
+      const old = btn.textContent;
+      btn.textContent = t.btn_copied;
+      setTimeout(() => btn.textContent = old, 900);
+    }).catch(() => alert(t.copy_failed));
+  }
+  function copyMaya() {
+    const t = translations[currentLang];
+    const text = document.getElementById('copyBlock').textContent;
+    const btn = document.getElementById('copyBtn');
+    navigator.clipboard.writeText(text).then(() => {
+      const old = btn.textContent;
+      btn.textContent = t.btn_copied;
+      setTimeout(() => btn.textContent = old, 900);
+    }).catch(() => alert(t.copy_failed));
+  }
+
+  function drawPreview(compW, compH, left, top, dispW, dispH, centerX, centerY) {
+    const t = translations[currentLang];
+    const pad = 20, vw = 600, vh = 320;
+    const scale = Math.min(vw / compW, vh / compH);
+    const ox = pad + (vw - compW * scale) / 2;
+    const oy = pad + (vh - compH * scale) / 2;
+
+    const compRect = document.getElementById('compRect');
+    compRect.setAttribute('x', ox); compRect.setAttribute('y', oy);
+    compRect.setAttribute('width', compW * scale); compRect.setAttribute('height', compH * scale);
+
+    const footRect = document.getElementById('footRect');
+    footRect.setAttribute('x', ox + left * scale); footRect.setAttribute('y', oy + top * scale);
+    footRect.setAttribute('width', dispW * scale); footRect.setAttribute('height', dispH * scale);
+
+    const cx = ox + compW * scale / 2;
+    const cy = oy + compH * scale / 2;
+    const cxLine = document.getElementById('cxLine');
+    cxLine.setAttribute('x1', cx); cxLine.setAttribute('x2', cx);
+    cxLine.setAttribute('y1', oy); cxLine.setAttribute('y2', oy + compH * scale);
+    const cyLine = document.getElementById('cyLine');
+    cyLine.setAttribute('x1', ox); cyLine.setAttribute('x2', ox + compW * scale);
+    cyLine.setAttribute('y1', cy); cyLine.setAttribute('y2', cy);
+
+    const dot = document.getElementById('centerDot');
+    dot.setAttribute('cx', ox + centerX * scale);
+    dot.setAttribute('cy', oy + centerY * scale);
+
+    document.getElementById('previewText').textContent = t.preview_text(fmt2(compW), fmt2(compH), fmt2(centerX), fmt2(centerY));
+  }
+
+  calculate();
+</script>
+</body>
+</html>

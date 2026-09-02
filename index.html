@@ -293,12 +293,7 @@
       <h2 data-i18n="sec5_title">5. Results for Maya</h2>
       <div class="result"><div class="result-title" data-i18n="res_render_size_title">Render Settings → Image Size</div><div class="result-value" id="renderSize">—</div></div>
       <div class="result"><div class="result-title" data-i18n="res_new_aperture_title">cameraShape → Film Back → Camera Aperture (inch)</div><div class="result-value good" id="newAperture">—</div></div>
-      <div class="result"><div class="result-title" data-i18n="res_film_offset_title">cameraShape → Film Back → Film Offset</div><div class="result-value warn" id="filmOffset">—</div></div>
-      <div class="tiny" data-i18n="film_offset_sign_note">If the offset moves in the wrong direction in Maya, invert the sign of both Film Offset values.</div>
-      <div class="result" id="gateWarning" style="display:none;border-color:#5a4a20;">
-        <div class="result-title warn" data-i18n="warn_gate_title">⚠ Check Fit Resolution Gate</div>
-        <div class="tiny" data-i18n="warn_gate_text" style="margin-top:2px;">The new aperture's aspect ratio doesn't match the render's — Horizontal and Vertical fit will give different results here. Set Fit Resolution Gate above to match what your camera actually uses in Maya.</div>
-      </div>
+      <div class="result"><div class="result-title" data-i18n="res_film_offset_title">cameraShape → Film Back → Film Offset</div><div class="result-value warn" id="filmOffset">—</div><div class="tiny" data-i18n="note_sign_flip" style="margin-top:4px;">If it's shifted the wrong way in Maya, negate both values.</div></div>
       <div class="button-row">
         <button id="copyBtn" data-i18n="btn_copy" onclick="copyMaya()">Copy Maya Values</button>
       </div>
@@ -369,8 +364,6 @@
       label_fit_gate: "Fit Resolution Gate",
       fit_horizontal: "Horizontal",
       fit_vertical: "Vertical",
-      warn_gate_title: "⚠ Check Fit Resolution Gate",
-      warn_gate_text: "The new aperture's aspect ratio doesn't match the render's — Horizontal and Vertical fit will give different results here. Set Fit Resolution Gate above to match what your camera actually uses in Maya.",
       sec_script_title: "Maya Script",
       btn_copy_script: "Copy Script",
       sec_script_hint: "Python. Applies to the camera currently selected in Maya — select the overscan camera before running it. Always writes inches, since that's what Maya's Camera Aperture and Film Offset attributes actually store.",
@@ -398,7 +391,7 @@
       res_render_size_title: "Render Settings → Image Size",
       res_new_aperture_title: (u) => `cameraShape → Film Back → Camera Aperture (${u})`,
       res_film_offset_title: (u) => `cameraShape → Film Back → Film Offset (${u})`,
-      film_offset_sign_note: "If the offset moves in the wrong direction in Maya, invert the sign of both Film Offset values.",
+      note_sign_flip: "If it's shifted the wrong way in Maya, negate both values.",
       res_bounds_title: "Footage Bounds in Comp",
       res_pixel_offset_title: "Offset from Comp Center, px",
       res_multipliers_title: "Aperture Multipliers",
@@ -443,8 +436,6 @@
       label_fit_gate: "Fit Resolution Gate",
       fit_horizontal: "Horizontal",
       fit_vertical: "Vertical",
-      warn_gate_title: "⚠ Fit Resolution Gateを確認してください",
-      warn_gate_text: "新しいApertureのアスペクト比がレンダーのアスペクト比と一致していません。HorizontalとVerticalで結果が変わります。上のFit Resolution Gateを、実際にMayaのカメラで使用している設定に合わせてください。",
       sec_script_title: "Mayaスクリプト",
       btn_copy_script: "スクリプトをコピー",
       sec_script_hint: "Python。Mayaで現在選択中のカメラに適用されます — 実行前にオーバースキャンカメラを選択してください。常にinchで出力されます(MayaのCamera ApertureとFilm Offsetの実際のアトリビュートはinchで保存されているため)。",
@@ -472,7 +463,7 @@
       res_render_size_title: "Render Settings → Image Size",
       res_new_aperture_title: (u) => `cameraShape → Film Back → Camera Aperture (${u})`,
       res_film_offset_title: (u) => `cameraShape → Film Back → Film Offset (${u})`,
-      film_offset_sign_note: "Mayaでオフセットが逆方向に動く場合は、Film Offsetの2つの値の符号を反転してください。",
+      note_sign_flip: "Mayaでずれる方向が逆の場合は、両方の値の符号を反転してください。",
       res_bounds_title: "コンプ内でのFootageの範囲",
       res_pixel_offset_title: "コンプ中心からのオフセット (px)",
       res_multipliers_title: "Aperture倍率",
@@ -616,42 +607,35 @@
     const offPxX = centerX - compW / 2;
     const offPxY = centerY - compH / 2;
 
-    const multH = compW / dispW;
-    const multV = compH / dispH;
-
-    // The active Fit Resolution Gate axis drives the projection.
-    // Do NOT scale horizontal and vertical aperture independently:
-    // derive the other aperture axis from the target render aspect ratio.
+    // The Fit Resolution Gate axis is the "driving" one: its aperture scales
+    // directly with the render size. The other axis isn't independently
+    // scaled from the old aperture — Maya derives it to match the render's
+    // device aspect ratio, so we compute it the same way here. (Scaling both
+    // axes independently from the old aperture, ignoring Fit Resolution Gate,
+    // was the bug — it only happened to work when the old aperture's aspect
+    // ratio already matched the footage's aspect ratio.)
     const fitGate = document.getElementById('fitGate').value;
     let newH, newV;
     if (fitGate === 'vertical') {
-      newV = oldV * multV;                 // inches
-      newH = newV * (compW / compH);       // match target render aspect
+      newV = oldV * (compH / dispH);
+      newH = newV * (compW / compH);
     } else {
-      newH = oldH * multH;                 // inches
-      newV = newH * (compH / compW);       // match target render aspect
+      newH = oldH * (compW / dispW);
+      newV = newH * (compH / compW);
     }
 
-    // Effective aperture used for px → film-offset conversion.
-    const effH = newH;
-    const effV = newV;
-
-    // Maya's horizontal Film Offset moves the image opposite to AE's +X layer shift.
-    // Vertical sign matches AE screen-space Y for this workflow.
-    const filmX = -offPxX / compW * effH; // inches
-    const filmY =  offPxY / compH * effV; // inches
+    // Maya's Horizontal Film Offset is inverted relative to the resulting
+    // image shift (shifting the film-gate window right moves the rendered
+    // content left), so it needs the opposite sign from the pixel offset.
+    // Vertical Film Offset doesn't need that flip: AE's Y-down pixel
+    // convention and Maya's Y-up film-plane convention already cancel it out.
+    // Confirmed against a real Maya scene — see chat.
+    const filmX = -(offPxX / compW * newH); // inches
+    const filmY = offPxY / compH * newV;    // inches
 
     // Blender shift uses render width for both axes in common horizontal sensor fit workflows.
     const blenderX = offPxX / compW;
     const blenderY = offPxY / compW;
-
-    // Warn when the new aperture's aspect ratio doesn't match the render's —
-    // in that case Horizontal vs Vertical Fit Resolution Gate genuinely give
-    // different Film Offset results, so the setting has to be correct.
-    const filmAspect = newH / newV;
-    const deviceAspect = compW / compH;
-    const gateMismatch = Math.abs(filmAspect / deviceAspect - 1) > 0.003;
-    document.getElementById('gateWarning').style.display = gateMismatch ? 'block' : 'none';
 
     // Display values, converted to the chosen unit.
     const newHd = newH * inchToUnit, newVd = newV * inchToUnit;
@@ -662,7 +646,7 @@
     document.getElementById('filmOffset').textContent = `${fmt(filmXd)}    ${fmt(filmYd)}`;
     document.getElementById('bounds').textContent = `L ${fmt2(left)} / R ${fmt2(right)} / T ${fmt2(top)} / B ${fmt2(bottom)}`;
     document.getElementById('pixelOffset').textContent = `X ${fmt2(offPxX)} / Y ${fmt2(offPxY)}`;
-    document.getElementById('multipliers').textContent = `H ×${fmt(multH,6)} / V ×${fmt(multV,6)}`;
+    document.getElementById('multipliers').textContent = `H ×${fmt(newH/oldH,6)} / V ×${fmt(newV/oldV,6)}`;
     document.getElementById('blenderShift').textContent = `X ${fmt(blenderX,5)} / Y ${fmt(blenderY,5)}`;
     document.getElementById('newAperture').previousElementSibling.textContent = t.res_new_aperture_title(apertureUnit);
     document.getElementById('filmOffset').previousElementSibling.textContent = t.res_film_offset_title(apertureUnit);
